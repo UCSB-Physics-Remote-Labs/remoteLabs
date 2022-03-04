@@ -1377,7 +1377,7 @@ class PWMChannel(BaseController):
 
 #Ziyan Code Goes Here
 class ServoAngleMotor(BaseController):
-    def __init__(self, name, pin,defaultpulsewidth = 0, bounds=None):
+    def __init__(self, name, pin,defaultpulsewidth = 0, stepPin, directionPin, enablePin,bounds=None):
         #Ziyan puts parameters needed for servo here
         # i.e. Set up PWM channel, set default PWM duty cycle and frequency.
         self.pin = pin
@@ -1386,18 +1386,16 @@ class ServoAngleMotor(BaseController):
         self.pulsewidth = defaultpulsewidth
         self.device_type = "controller"
         pi.set_servo_pulsewidth(self.pin, self.pulsewidth)
+        
         self.stepPin = stepPin
         self.directionPin = directionPin
         self.enablePin = enablePin
-        
-        pi.set_mode(self.stepPin, pigpio.OUTPUT)
-        pi.set_pull_up_down(self.stepPin, pigpio.PUD_DOWN)
-        pi.set_mode(self.enablePin, pigpio.OUTPUT)
-        pi.set_pull_up_down(self.enablePin, pigpio.PUD_DOWN)
-        pi.set_mode(self.directionPin, pigpio.OUTPUT)
-        pi.set_pull_up_down(self.directionPin, pigpio.PUD_DOWN)
+        gpio.setmode(gpio.BOARD)
         
         pi.write(self.enablePin, 0)
+        
+        gpio.setup(self.pins, gpio.OUT)
+        gpio.setup(self.directionPin, gpio.OUT)
         
         if bounds is None:
             self.lowerBound = 0
@@ -1424,7 +1422,7 @@ class ServoAngleMotor(BaseController):
         return angle
 
     class ServoSpeedMotor(BaseController):
-    def __init__(self, name, pin,defaultpulsewidth = 0):
+    def __init__(self, name, pin,defaultpulsewidth = 0,stepPin, directionPin, enablePin):
         #Ziyan puts parameters needed for servo here
         # i.e. Set up PWM channel, set default PWM duty cycle and frequency.
         self.pin = pin
@@ -1434,6 +1432,13 @@ class ServoAngleMotor(BaseController):
         self.frequency = frequency
         self.pulsewidth = defaultpulsewidth
         self.device_type = "controller"
+        self.stepPin = stepPin
+        self.directionPin = directionPin
+        self.enablePin = enablePin
+        gpio.setmode(gpio.BOARD)
+        
+        pi.write(self.enablePin, 0)
+        
         pi.set_servo_pulsewidth(self.pin, self.pulsewidth)
         
     

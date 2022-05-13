@@ -331,6 +331,11 @@ class StepperI2C(MotorKit, BaseController):
             raise ArgumentNumberError(len(params), 1, "goto")
         return params[0]
 
+    def admingoto_parser(self, params):
+        if len(params) != 1:
+            raise ArgumentNumberError(len(params), 1, "admingoto")
+        return params[0]
+
     def degMove_parser(self, params):
         try:
             steps = float(params[0])

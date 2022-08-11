@@ -20,7 +20,11 @@ gpio.setmode(gpio.BCM)
 
 class BaseController(object):
 
-    def cmd_handler(self, cmd, params):
+    def cmd_handler(self, cmd, params, queue, device_name): # this should recieve a command, and a queue where it sends its response
+        
+        # Aquires lock
+        self.experiment.locks[self.name].acquire()
+
         # Make the parser name, it should follow the naming convention <cmd>_parser. If there is no parser return None.
         parser = getattr(self, cmd+"_parser", None)
 
@@ -37,7 +41,13 @@ class BaseController(object):
         if callable(method):
             response = method(params)
 
-        return response
+        
+
+        # returns response
+        queue.put([response, device_name])
+
+        # Releases lock
+        self.experiment.locks[self.name].release()
 
     def cleanup(self):
         pass
@@ -330,6 +340,11 @@ class StepperI2C(MotorKit, BaseController):
         if len(params) != 1:
             raise ArgumentNumberError(len(params), 1, "goto")
         return params[0]
+    
+    def admingoto_parser(self, params):
+        if len(params) != 1:
+            raise ArgumentNumberError(len(params), 1, "admingoto")
+        return params[0]
 
     def admingoto_parser(self, params):
         if len(params) != 1:
@@ -342,7 +357,6 @@ class StepperI2C(MotorKit, BaseController):
         except ValueError:
             raise ArgumentError(self.name, "degMove", params)
         return steps
-
 
     def degMove(self, deg):
         print("{0} degrees".format(deg))

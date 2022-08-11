@@ -8,6 +8,10 @@ import json
 import logging
 import threading
 import queue
+import tornado.web, tornado.ioloop, tornado.websocket
+from picamera import PiCamera, PiVideoFrameType
+from string import Template
+import io, os, socket
 
 
 class NoDeviceError(Exception):
@@ -21,6 +25,7 @@ class NoDeviceError(Exception):
 class Experiment(object):
 
     def __init__(self, name, root_directory="remoteLabs", admin=False, messenger=False):
+        self.camera = Camera(sensor_mode = 2, resolution = '1920x1080', framerate = 30)
         self.devices = {}
 
         # Marlon's addition
@@ -227,11 +232,13 @@ class Experiment(object):
                 f = open(self.socket_path, 'w')
                 f.close()
             
-            if self.messenger is not None:
-                self.messenger_thread = threading.Thread(target=self.messenger.setup, daemon=True)
-                self.messenger_thread.start()
+            # if self.messenger is not None:
+            #     self.messenger_thread = threading.Thread(target=self.messenger.setup, daemon=True)
+            #     self.messenger_thread.start()
+            self.camera_thread = threading.Thread(target = self.camera.start, daemon = True)
+            self.camera_thread.start()
             os.unlink(self.socket_path)
-            self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
+            # self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET)
             signal(SIGINT, self.exit_handler)
             self.socket.bind(self.socket_path)
             self.socket.listen(1)
@@ -249,6 +256,20 @@ class Experiment(object):
         except socket.error as err:
             logging.error("Socket Error!", exc_info=True)
             print("socket error: {0}".format(err))
+
+
+    async def websocketCommandServer(self, websocket):
+        async for message in websocket:
+            response = self.command_handler(message)
+            print("RESPONSE", response)
+            if response is not None:
+                await websocket.send(response)
+
+
+    async def runWebsocketServer(self):
+        async with websockets.serve(self.websocketCommandServer, "0.0.0.0", 6048):
+            print("Running Carlos's Websocket server")
+            await asyncio.Future()
 
 
 class Messenger:
@@ -331,8 +352,91 @@ class Messenger:
     #Carlos adds runWebsocketServer "main" function here
         # Change address of server to 0.0.0.0
 
-# Zak and Carlos learned how pull requests work
+class StreamBuffer(object):
+    def __init__(self,camera):
+        self.frameTypes = PiVideoFrameType()
+        self.loop = None
+        self.buffer = io.BytesIO()
+        self.camera = camera
+
+    def setLoop(self, loop):
+        self.loop = loop
+
+    def write(self, buf):
+        if self.camera.frame.complete and self.camera.frame.frame_type != self.frameTypes.sps_header:
+            self.buffer.write(buf)
+            if self.loop is not None and wsHandler.hasConnections():
+                self.loop.add_callback(callback=wsHandler.broadcast, message=self.buffer.getvalue())
+            self.buffer.seek(0)
+            self.buffer.truncate()
+        else:
+            self.buffer.write(buf)
 
 
+class wsHandler(tornado.websocket.WebSocketHandler):
+    connections = []
+
+    def open(self):
+        self.connections.append(self)
+
+    def on_close(self):
+        self.connections.remove(self)
+
+    def on_message(self, message):
+        pass
+
+    @classmethod
+    def hasConnections(cl):
+        if len(cl.connections) == 0:
+            return False
+        return True
+
+    @classmethod
+    async def broadcast(cl, message):
+        for connection in cl.connections:
+            try:
+                await connection.write_message(message, True)
+            except tornado.websocket.WebSocketClosedError:
+                pass
+            except tornado.iostream.StreamClosedError:
+                pass
     
+    def check_origin(self, origin):
+        return True
     
+
+class Camera():
+
+    def __init__(self, sensor_mode, resolution, framerate):
+        self.port = 6049
+        self.sensor_mode = sensor_mode
+        self.resolution = resolution
+        self.framerate = framerate
+        self.recordingOptions = {
+            'format' : 'h264',
+            'quality' : 20,
+            'profile' : 'high',
+            'level' : '4.2',
+            'intra_period' : 15,
+            'intra_refresh' : 'both',
+            'inline_headers' : True,
+            'sps_timing' : True
+        }
+        self.camera = PiCamera(sensor_mode=self.sensor_mode, resolution=self.resolution, framerate=self.framerate)
+        self.camera.video_denoise = False
+        self.requestHandlers = [
+            (r"/ws/", wsHandler)
+        ]
+    def start(self):
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        self.streamBuffer = StreamBuffer(self.camera)
+        self.camera.start_recording(self.streamBuffer, **self.recordingOptions)
+        self.application = tornado.web.Application(self.requestHandlers)
+        self.application.listen(self.port)
+        self.loop = tornado.ioloop.IOLoop.current()
+        # self.loop = tornado.ioloop.IOLoop()
+        # self.loop.make_current()
+        self.streamBuffer.setLoop(self.loop)
+        self.loop.start() 
+    def end(self):
+        self.camera.close()

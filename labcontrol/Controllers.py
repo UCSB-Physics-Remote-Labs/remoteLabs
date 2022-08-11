@@ -27,7 +27,6 @@ class BaseController(object):
 
         # Make the parser name, it should follow the naming convention <cmd>_parser. If there is no parser return None.
         parser = getattr(self, cmd+"_parser", None)
-
         # If parser exists, use it to parse the params.
         if parser is not None:
             params = parser(params)
@@ -37,7 +36,6 @@ class BaseController(object):
 
         # No get the command method. If there isn't a method, it should through an AttributeError.
         method = getattr(self, cmd)
-
         if callable(method):
             response = method(params)
 
@@ -1246,8 +1244,11 @@ class ArduCamMultiCamera(BaseController):
     def camera(self, param):
         #Param should be a, b, c, d, or off
         print("Switching to camera "+param)
+        if self.experiment is not None:
+            self.experiment.camera.camera.wait_recording(5)
         os.system(self.camerai2c[param])
         gpio.output(self.channels, self.cameraDict[param])
+            
 
     def camera_parser(self, params):
         if len(params) != 1:

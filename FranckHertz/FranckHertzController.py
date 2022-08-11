@@ -12,7 +12,7 @@ group.add_argument("-a", "--admin", action="store_true")
 
 args = parser.parse_args()
 
-labSettingsPath = os.path.join("home","pi", "remoteLabs", "FranckHertz", args.settings)
+labSettingsPath = os.path.join("/home","pi", "remoteLabs", "FranckHertz", args.settings)
 
 with open(labSettingsPath, "r") as f:
     labSettings = json.load(f)
@@ -53,8 +53,8 @@ Vr = StepperI2C("Vr", 4,bounds=VrBounds)
 
 
 
-FHpdu = PDUOutlet("FHpdu", "fhpdu.inst.physics.ucsb.edu", "admin", "5tgb567ujnb", 60, outlets=outlets, outletMap=outletMap)
-FHpdu.login()
+# FHpdu = PDUOutlet("FHpdu", "fhpdu.inst.physics.ucsb.edu", "admin", "5tgb567ujnb", 60, outlets=outlets, outletMap=outletMap)
+# FHpdu.login()
 
 
 electrometer = Keithley6514Electrometer("Electrometer", visa_electrometer)
@@ -66,13 +66,13 @@ Va.device.release()
 Vr.device.release()
 
 if args.reset:
-    exp = Experiment("FranckHertz", messenger=True)
+    exp = Experiment("FranckHertz", messenger=False)
 elif args.admin:
-    exp = Experiment("FranckHertz", admin=True)
+    exp = Experiment("FranckHertz", admin=False)
 else:
-    exp=Experiment("FranckHertz", messenger=True)
+    exp=Experiment("FranckHertz", messenger=False)
 exp.add_device(camera)
-exp.add_device(FHpdu)
+# exp.add_device(FHpdu)
 exp.add_device(oven)
 # exp.add_device(OvenPower)
 exp.add_device(filament)

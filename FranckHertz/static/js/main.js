@@ -1,80 +1,101 @@
 
 // This is the function that adds the video stream. You can have it do other things (like turn off a loading element) once it receives a stream.
-function connectStream(stream, videoElement) {
-    if (videoElement) {
-        console.log("got a stream! Putting stream in the following video" );
-        console.log(videoElement);
-        videoElement.srcObject = stream;
-        videoElement.setAttribute("data-playing", "true");
+// function connectStream(stream, videoElement) {
+//     if (videoElement) {
+//         console.log("got a stream! Putting stream in the following video" );
+//         console.log(videoElement);
+//         videoElement.srcObject = stream;
+//         videoElement.setAttribute("data-playing", "true");
 
-        // videoElement.play();
-    }
-}
+//         // videoElement.play();
+//     }
+// }
 
-//This function runs if there is an error returned from teh websocket connecting to the stream.
-function errorStream(error){
-    alert(error);
-}
+// //This function runs if there is an error returned from teh websocket connecting to the stream.
+// function errorStream(error){
+//     alert(error);
+// }
 
-// This functions gets run when the websocket is closed.
-function closeStream(videoElement) {
-    if (videoElement) {
-        videoElement.srcObject = null;
-        videoElement.setAttribute("data-playing", "false");
-        console.log("websocket closed. bye bye!");
-    }
-}
+// // This functions gets run when the websocket is closed.
+// function closeStream(videoElement) {
+//     if (videoElement) {
+//         videoElement.srcObject = null;
+//         videoElement.setAttribute("data-playing", "false");
+//         console.log("websocket closed. bye bye!");
+//     }
+// }
 
-function controllerResponseHandler(cmd) {
-    var components = cmd.split("/");
-    var device = components[0]
-    var info = components[1]
-    var infoValue = components[2]
+// function controllerResponseHandler(cmd) {
+//     var components = cmd.split("/");
+//     var device = components[0]
+//     var info = components[1]
+//     var infoValue = components[2]
 
-    if (infoValue == "limit") {
-        extremaModal.modal("show")
-    }
-    if (device == "Messenger") {
-        console.log("Received Messenger")
-        if (info == "contactModal") {
-            if (infoValue == "show") {
-                contactModal.modal("show")
-            }
+//     if (infoValue == "limit") {
+//         extremaModal.modal("show")
+//     }
+//     if (device == "Messenger") {
+//         console.log("Received Messenger")
+//         if (info == "contactModal") {
+//             if (infoValue == "show") {
+//                 contactModal.modal("show")
+//             }
+//         }
+//     }
+
+//     if (device == "Messenger") {
+//         console.log("Received Messenger")
+//         if (info == "bootModal") {
+//             if (infoValue == "show") {
+//                 bootModal.modal("show")
+//             }
+//         }
+//     }
+
+// }
+
+// // This function runs when the WebSocket sends a message. Note that this is not the WebRTC Datachannel.
+// function onWebsocketMessage(message){
+//     alert(message);
+// }
+
+// function setupWebRTC(port, videoElement, vformat, hardwareCodec=false) {
+//     var signalling_server_hostname = location.hostname || "192.168.0.2";
+//     // var signalling_server_address = signalling_server_hostname + ':' + (port || (location.protocol === 'https:' ? 443 : 80));
+//     var signalling_server_address = signalling_server_hostname + location.pathname + "ws"
+//     var protocol = location.protocol === "https:" ? "wss:" : "ws:";
+//     // var address = url + ':' + (port || (protocol === 'https:' ? 443 : 80)) + '/stream/webrtc';
+//     // var address = location.hostname + ':' + (port || (protocol === 'https:' ? 443 : 80)) + '/stream/webrtc';
+//     // protocol = "wss:";
+//     // var address = url + "/webrtc";
+//     var wsurl = protocol + '//' + signalling_server_address;
+
+//     console.log(videoElement);
+//     if (videoElement && videoElement.getAttribute('data-playing') == "false") {
+//         var signalObj = new signal(wsurl, videoElement, vformat, hardwareCodec, connectStream, errorStream, closeStream, onWebsocketMessage)
+//     }
+//     return signalObj
+// }
+
+function videoStream() {
+    console.log("Attempting to connect to JMuxer")
+    var jmuxer = new JMuxer({
+        node: 'stream',
+        mode: 'video',
+        flushingTime: 0,
+        fps: 30,
+        debug: false
+        });
+
+    var ws = new WebSocket(wsurl_video);
+    ws.binaryType = 'arraybuffer';
+    ws.addEventListener('message',function(event){
+        if (!document.hidden){
+            jmuxer.feed({
+                video: new Uint8Array(event.data)
+            });				
         }
-    }
-
-    if (device == "Messenger") {
-        console.log("Received Messenger")
-        if (info == "bootModal") {
-            if (infoValue == "show") {
-                bootModal.modal("show")
-            }
-        }
-    }
-
-}
-
-// This function runs when the WebSocket sends a message. Note that this is not the WebRTC Datachannel.
-function onWebsocketMessage(message){
-    alert(message);
-}
-
-function setupWebRTC(port, videoElement, vformat, hardwareCodec=false) {
-    var signalling_server_hostname = location.hostname || "192.168.0.2";
-    // var signalling_server_address = signalling_server_hostname + ':' + (port || (location.protocol === 'https:' ? 443 : 80));
-    var signalling_server_address = signalling_server_hostname + location.pathname + "ws"
-    var protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    // var address = url + ':' + (port || (protocol === 'https:' ? 443 : 80)) + '/stream/webrtc';
-    // var address = location.hostname + ':' + (port || (protocol === 'https:' ? 443 : 80)) + '/stream/webrtc';
-    // protocol = "wss:";
-    // var address = url + "/webrtc";
-    var wsurl = protocol + '//' + signalling_server_address;
-
-    console.log(videoElement);
-    if (videoElement && videoElement.getAttribute('data-playing') == "false") {
-        var signalObj = new signal(wsurl, videoElement, vformat, hardwareCodec, connectStream, errorStream, closeStream, onWebsocketMessage)
-    }
-    return signalObj
+    });
 }
 
 var extremaModal, contactModal, bootModal
@@ -221,13 +242,13 @@ $("document").ready(function () {
 
     //for LiveFeed  
     // TEMP CHANGE
-    var mainCamSignal = setupWebRTC(8081, liveStream, 100);
+    //var mainCamSignal = setupWebRTC(8081, liveStream, 100);
  
     //for Time Limit
      window.setTimeout(timeOutHandler,10800000)
 
      function timeOutHandler(){
-         mainCamSignal.hangup()
+         //mainCamSignal.hangup()
          alert("Your session has timed out.")
      }
 
@@ -764,6 +785,8 @@ $("document").ready(function () {
     },
     singleSelect: true
   }).parent().css({"margin":"0 auto"});
+
+  videoStream();
   
 //   console.log('mapster calls have been made');
   
@@ -813,12 +836,12 @@ $("document").ready(function () {
 });
 
 
-window.addEventListener('beforeunload', function(e) {
-    // TEMP CHANGE
-    mainCamSignal.hangup();
-    // TEMP CHANGE
-    dataChannel.close();
-})
+// window.addEventListener('beforeunload', function(e) {
+//     // TEMP CHANGE
+//     mainCamSignal.hangup();
+//     // TEMP CHANGE
+//     dataChannel.close();
+// })
 
 
 
